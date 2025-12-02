@@ -5,6 +5,10 @@ module.exports = (req, res, next) => {
     if(!authHeader)
         return res.status(401).json({ mesasage: "Token gerekli,"});
     const token = authHeader.split(" ")[1];
+    
+    if (!token) {
+    return res.status(401).json({ message: "Token bulunamadı." });
+  }
 
     jwt.verify(token, process.env.JWT_SECRET || "secretkey", (err, decoded) => {
         if(err)
