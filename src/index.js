@@ -23,3 +23,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server çalışıyor: ${PORT}`);
 });
+const productRoutes = require('./routes/productRoutes');
+app.use('/products', productRoutes);
