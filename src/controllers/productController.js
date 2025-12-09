@@ -1,6 +1,7 @@
+const redisClient = require("../redis");
 let products = [];
 
-exports.createProduct = (req, res) => {
+exports.createProduct = async (req, res) => {
     try {
         const {name, price } = req.body;
 
@@ -15,6 +16,7 @@ exports.createProduct = (req, res) => {
         price
      };
      products.push(newProduct);
+     await redisClient.del("products");
      return res.status(201).json({
           message: "Ürün başarıyla oluşturuldu.",
           product: newProduct
@@ -29,8 +31,13 @@ exports.createProduct = (req, res) => {
   
 };
 
-exports.getProducts = (req, res) => {
+exports.getProducts = async (req, res) => {
     try{
+        // redise kaydetmeden önce normal ürünleri buluyoruz.
+        const data = products;
+        // Cache'e 1 saatlik TTL ile kaydedelim.
+        await redisClient.setEx("products", 3600, JSON.stringify(data));
+
         return res.json({
             message: "Ürün Listesi.",
             products: products
@@ -65,7 +72,7 @@ exports.getProductById = (req, res) => {
     }
 };
 
-exports.updateProduct = (req, res) => {
+exports.updateProduct = async (req, res) => {
     try {
          const { id } = req.params;
         const { name, price }= req.body;
@@ -75,6 +82,7 @@ exports.updateProduct = (req, res) => {
         }   
        if(name) product.name = name;
        if(price) product.price = price;
+       await redisClient.del("products");
 
        return res.json({
         message: "Ürün başarıyla güncellendi",
@@ -90,7 +98,7 @@ exports.updateProduct = (req, res) => {
 
 };
 
-exports.deleteProduct = (req, res) => {
+exports.deleteProduct = async (req, res) => {
     try {
         const{ id } = req.params;
 
@@ -103,6 +111,7 @@ exports.deleteProduct = (req, res) => {
         }
         const deletedProduct = products[index];
         products.splice(index,1);
+        await redisClient.del("products");
         return res.json({
             message: "Ürün silme başarılı",
             deleted: deletedProduct

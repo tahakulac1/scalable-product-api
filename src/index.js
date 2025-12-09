@@ -1,8 +1,11 @@
-
+const rateLimiter = require('./middlewares/rateLimiter');
 const express = require('express');
+require("./redis");
 const app = express();
 
+
 app.use(express.json());
+app.use(rateLimiter);
 
 
 const authMiddleware = require('./middlewares/authMiddleware');
