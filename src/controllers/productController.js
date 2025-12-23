@@ -1,30 +1,36 @@
-const redisClient = require("../redis");
-let products = [];
+const prisma = require('../prismaClient');
+const redisClient = require('../redis');
+
+
+async function invalidateProductListCache() {
+    const keys = await redisClient.keys("products:page:*");
+    if (keys.length) await redisClient.del(keys);
+}
 
 exports.createProduct = async (req, res) => {
     try {
         const {name, price } = req.body;
 
-     if(!name || !price) {
-        return res.status(400).json({message: "İsim ve Fiyat zorunlu"});
+        if (!name || price === undefined) {
 
-     }
+            return res.status(400).json({message: "İsim ve fiyat zorunlu"});
 
-     const newProduct = {
-        id: products.length +1,
-        name,
-        price
-     };
-     products.push(newProduct);
-     await redisClient.del("products");
-     return res.status(201).json({
-          message: "Ürün başarıyla oluşturuldu.",
-          product: newProduct
+        }
+        const product = await prisma.product.create({
+            data: {
+                name,
+                price: parseFloat(price)
+            }
+        });
 
-     });
-    
+        await invalidateProductListCache();
+
+        return res.status(201).json({
+            message: "Ürün oluşturuldu",
+            product
+        });
     }catch (err) {
-        console.error('Ürün oluşturma hatası:', err);
+        console.error("Ürün oluşturma hatası:", err);
         return res.status(500).json({message: "Sunucu hatası"});
     }
 
@@ -32,93 +38,113 @@ exports.createProduct = async (req, res) => {
 };
 
 exports.getProducts = async (req, res) => {
-    try{
-        // redise kaydetmeden önce normal ürünleri buluyoruz.
-        const data = products;
-        // Cache'e 1 saatlik TTL ile kaydedelim.
-        await redisClient.setEx("products", 3600, JSON.stringify(data));
+    try {
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+        const skip = (page-1) * limit;
+
+        const products = await prisma.product.findMany({
+            skip,
+            take: limit,
+            orderBy: {id: "asc"},
+        });
+
+        await redisClient.setEx(
+            req.cacheKey,
+            3600,
+            JSON.stringify(products)
+        );
 
         return res.json({
-            message: "Ürün Listesi.",
-            products: products
+            message: "Ürün listesi",
+            page,
+            limit,
+            products,
         });
-    }catch (err) {
-        console.error("Ürün listeleme hatası.");
-        return res.status(500).json({ message: "Sunucu hatası."});
-    }
-};
+    
+    }catch (err){
+        console.error("Ürün listeleme hatası:",err);
+        return res.status(500).json({ message: "Sunucu hatası" });
 
-exports.getProductById = (req, res) => {
+    }
+
+};
+exports.getProductsById = async (req, res)=> {
     try {
-        const {id} = req.params;
-        const product = products.find(p=> p.id === Number(id));
+        const id = Number(req.params.id);
+
+        const product = await prisma.product.findUnique({
+            where: { id },
+        });
 
         if (!product) {
-            return res.status(404).json({
-                message: "Ürün bulunamadı."
-            });
+            return res.status(404).json({message: "Ürün bulunamadı."});
+
         }
+
+        await redisClient.setEx(
+            'products:id:${id}',
+            3600,
+            JSON.stringify(product)
+        );
+
         return res.json({
             message: "Ürün bulundu.",
-            product
+            product,
         });
 
-
     }catch (err) {
-        console.error('Ürün bulma hatası:', err);
+        console.error("Ürün bulma hatası:", err);
         return res.status(500).json({
             message: "Sunucu hatası."
         });
     }
 };
-
 exports.updateProduct = async (req, res) => {
     try {
-         const { id } = req.params;
-        const { name, price }= req.body;
-        const product = products.find(p => p.id === Number(id));
-        if (!product) {
-        return res.status(404).json({ message:"Ürün bulunamadı."});
-        }   
-       if(name) product.name = name;
-       if(price) product.price = price;
-       await redisClient.del("products");
+        const id = Number(req.params.id);
+        const { name, price } = req.body;
 
-       return res.json({
-        message: "Ürün başarıyla güncellendi",
-        product
-       });
-    }catch (err) {
-        console.error("Ürün güncelleme hatası:", err);
-        return res.status(500).json({
-            message:"Sunucu hatası"
+        const updated = await prisma.product.update({
+            where: { id },
+            data: {
+                name: name ?? undefined,
+                price: price ? parseFloat(price) : undefined
+            }
         });
-    }
-    
 
+        await invalidateProductListCache();
+        await redisClient.del('products:id:${id}');
+
+        return res.json({
+            message: "Ürün güncellendi",
+            product: updated
+        });
+
+    } catch (err) {
+        console.error("Ürün güncelleme hatası:", err);
+        return res.status(500).json({message: "Sunucu hatası"});
+
+    }
 };
 
 exports.deleteProduct = async (req, res) => {
     try {
-        const{ id } = req.params;
-
-        const index= products.findIndex(p=> p.id === Number(id));
-
-        if(index === -1) {
-            return res.status(404).json({
-                message:"Ürün bulunamadı."
-            });
-        }
-        const deletedProduct = products[index];
-        products.splice(index,1);
-        await redisClient.del("products");
-        return res.json({
-            message: "Ürün silme başarılı",
-            deleted: deletedProduct
+        const id = Number(req.params.id);
+        const deleted = await prisma.product.delete({
+            where: { id }
         });
 
-    }catch (err){
-        console.error("ürün silme hatası:", err);
-        return res.status(500).json({message: "Sunucu hatası"});
+        await invalidateProductListCache();
+        await redisClient.del('products:id:${id}');
+        
+        return res.json({
+            message: "Ürün silindi",
+            deleted
+        });
+
+    } catch (err) {
+        console.error("Ürün silme hatası:", err);
+        return res.status(500).json({ message: "Sunucu hatası"});
     }
 };

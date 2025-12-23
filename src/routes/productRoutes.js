@@ -14,7 +14,7 @@ router.get('/',
 //ürün oluşturma
 router.post('/', authMiddleware, productController.createProduct);
 // id ile ürün getirme
-router.get('/:id', authMiddleware, productController.getProductById);
+router.get('/:id', authMiddleware, productController.getProductsById);
 router.put('/:id',authMiddleware, productController.updateProduct);
 router.delete('/:id', authMiddleware, productController.deleteProduct);
 module.exports = router;

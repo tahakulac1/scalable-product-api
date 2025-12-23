@@ -1,3 +1,4 @@
+require('dotenv').config();
 const rateLimiter = require('./middlewares/rateLimiter');
 const express = require('express');
 require("./redis");
