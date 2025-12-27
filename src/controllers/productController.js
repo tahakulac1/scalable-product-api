@@ -16,12 +16,16 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({message: "İsim ve fiyat zorunlu"});
 
         }
-        const product = await prisma.product.create({
-            data: {
-                name,
-                price: parseFloat(price)
-            }
+        const result = await prisma.$transaction(async (tx) =>{
+            const product = await tx.product.create({
+                data: {
+                    name,
+                    price: parseFloat(price),
+                },
+            });
+            return product; 
         });
+        
 
         await invalidateProductListCache();
 
@@ -105,13 +109,17 @@ exports.updateProduct = async (req, res) => {
         const id = Number(req.params.id);
         const { name, price } = req.body;
 
-        const updated = await prisma.product.update({
+        const updated = await prisma.$transaction(async (tx) => {
+            return await tx.product.update({
             where: { id },
             data: {
                 name: name ?? undefined,
                 price: price ? parseFloat(price) : undefined
-            }
+            },
+         });
+
         });
+
 
         await invalidateProductListCache();
         await redisClient.del('products:id:${id}');
@@ -131,8 +139,10 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
     try {
         const id = Number(req.params.id);
-        const deleted = await prisma.product.delete({
-            where: { id }
+        await prisma.$transaction(async (tx) => {
+            await tx.product.delete({
+                where: { id },
+            });
         });
 
         await invalidateProductListCache();
