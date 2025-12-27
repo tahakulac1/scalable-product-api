@@ -1,3 +1,4 @@
+const rateLimiter = require('../middlewares/rateLimiter');
 const express = require('express');
 const router = express.Router();
 
@@ -9,6 +10,7 @@ const cacheMiddleware = require('../middlewares/cacheMiddleware');
 // ürün listeleme
 router.get('/',
      authMiddleware,
+     rateLimiter(50,60000),
      cacheMiddleware.cacheProducts,
      productController.getProducts);
 //ürün oluşturma

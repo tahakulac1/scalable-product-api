@@ -6,7 +6,7 @@ const app = express();
 
 
 app.use(express.json());
-app.use(rateLimiter);
+
 
 
 const authMiddleware = require('./middlewares/authMiddleware');

@@ -16,7 +16,7 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({message: "İsim ve fiyat zorunlu"});
 
         }
-        const result = await prisma.$transaction(async (tx) =>{
+        const product = await prisma.$transaction(async (tx) =>{
             const product = await tx.product.create({
                 data: {
                     name,

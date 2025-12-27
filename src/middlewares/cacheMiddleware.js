@@ -7,8 +7,8 @@ exports.cacheProducts = async (req ,res, next) => {
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 10;
 
-        const cacheKey = 'products:page:${page}:limit:${limit}';
-        const cachedData= await redisClient.get("cacheKey");
+        const cacheKey = `products:page:${page}:limit:${limit}`;
+        const cachedData= await redisClient.get(cacheKey);
 
         if (cachedData) {
             console.log("Cache'den veri geldi!");
@@ -29,7 +29,7 @@ exports.cacheProducts = async (req ,res, next) => {
 
 exports.saveProductsCache = async (req, res, next) => {
     try {
-        await redisClient.setEx("products", 3600, JSON.stringify(res.local.products));
+        await redisClient.setEx("products", 3600, JSON.stringify(res.locals.products));
         next();
 
     }catch (err) {
