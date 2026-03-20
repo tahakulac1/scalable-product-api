@@ -1,18 +1,24 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const prisma = require("../prismaClient");
 
-let users = []; // veritabanı yok mock array kullanıyoruz
 
 exports.register = async (req, res) => {
+    console.log("REGISTER DATABASE URL:", process.env.DATABASE_URL);
+    await prisma.$queryRaw`SELECT 1`;
+    console.log("DB CONNECTION OK");
+
     
     try{
-        const { email, password } = req.body;
+    const { email, password } = req.body;
 
     if(!email || !password)
         return res.status(400).json({ message: "Email ve şifre zorunlu."});
     
 
-    const existingUser = users.find(u => u.email === email);
+    const existingUser = await prisma.user.findUnique({
+        where: {email}
+    });
     if (existingUser)
         return res.status(400).json({message: "Bu email zaten kayıtlı."});
         
@@ -20,10 +26,17 @@ exports.register = async (req, res) => {
     
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser  = { email, password: hashedPassword};
-    users.push(newUser);
+    const user  = await prisma.user.create({
+        data: {
+            email,
+            password: hashedPassword
+        }
+    });
+    return res.status(201).json({
+        message: "Kullanıcı oluturuldu",
+        userId: user.id
+    });
 
-    res.json({ message: "Kayıt başarılı."});
     } catch (err) {
         console.error("Kayit hatasi", err);
         return res.status(500).json({ message: "Sunucu hatası"});
@@ -38,7 +51,9 @@ exports.login = async (req, res) => {
     if(!email || !password)
         return res.status(400).json({ message: "Email ve şifre zorunlu."});
     
-    const user = users.find(u => u.email === email);
+    const user = await prisma.user.findUnique({
+        where: { email}
+    });
     if (!user)
         return res.status(400).json({ message: "Kullanıcı bulunamadı."});
     
@@ -49,8 +64,8 @@ exports.login = async (req, res) => {
 
 
     const token = jwt.sign(
-        { email },
-        process.env.JWT_SECRET || "secretkey",
+        { userId: user.id },
+        process.env.JWT_SECRET,
         { expiresIn: "1h"}
     );
 

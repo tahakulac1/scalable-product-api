@@ -1,33 +1,32 @@
-console.log("redis çalıştı");
-const {createClient} = require("redis");
+const Redis = require("ioredis");
 
-const redisClient = createClient({
-    socket: {
-        host: "localhost",
-        port:6379
-    }
-});
+let redis = null;
 
-// hata kodu
-redisClient.on("error", (err) => {
-    console.error("Redis bağlantı hatası.", err);
+if (process.env.REDIS_ENABLED === "true") {
+  try {
+    redis = new Redis({
+      host: process.env.REDIS_HOST,
+      port: Number(process.env.REDIS_PORT),
+      connectTimeout: 3000,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      retryStrategy: () => null
+    });
 
-});
+    redis.on("connect", () => {
+      console.log("Redis bağlı");
+    });
 
-//bağlantı sağlandığında
+    redis.on("error", (err) => {
+      console.warn("Redis hata, cache pas geçiliyor:", err.message);
+    });
 
-redisClient.on("connect", ()=> {
-    console.log("Redis'e bağlanıldı");
-});
+  } catch (err) {
+    console.warn("Redis başlatılamadı:", err.message);
+    redis = null;
+  }
+} else {
+  console.log("Redis devre dışı (REDIS_ENABLED=false)");
+}
 
-//bağlantıyı başlat
-(async () => {
-    try {
-        await redisClient.connect();
-
-    }catch (err) {
-        console.error("Redis connect() hatası:", err );
-    }
-})();
-
-module.exports = redisClient;
+module.exports = redis;
