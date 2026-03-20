@@ -12,12 +12,12 @@ Bu proje; yüksek performanslı, ölçeklenebilir ve güvenli bir RESTful API mi
 
 ##  Öne Çıkan Özellikler
 
-*   **🔐 Kimlik Doğrulama:** JWT tabanlı güvenli Register/Login işlemleri. Şifreler veritabanında Bcrypt ile hash'lenerek saklanır.
-*   **⚡ Redis Caching:** Sık istek atılan listeleme uç noktaları (endpoint) Redis ile önbelleğe alınır. Veritabanı yükü minimuma indirilerek milisaniyelik yanıt süreleri elde edilir.
-*   **🛡️ Rate Limiting:** Kötü niyetli spam ve DDoS saldırılarına karşı IP bazlı istek sınırlandırması (Sliding Window algoritması ile).
-*   **🐳 Tamamen Dockerize:** Uygulama, Veritabanı (Postgres) ve Önbellek (Redis) servisleri `docker-compose` ile birbirine entegre ve izole şekilde çalışır.
+*   ** Kimlik Doğrulama:** JWT tabanlı güvenli Register/Login işlemleri. Şifreler veritabanında Bcrypt ile hash'lenerek saklanır.
+*   ** Redis Caching:** Sık istek atılan listeleme uç noktaları (endpoint) Redis ile önbelleğe alınır. Veritabanı yükü minimuma indirilerek milisaniyelik yanıt süreleri elde edilir.
+*   ** Rate Limiting:** Kötü niyetli spam ve DDoS saldırılarına karşı IP bazlı istek sınırlandırması (Sliding Window algoritması ile).
+*   ** Tamamen Dockerize:** Uygulama, Veritabanı (Postgres) ve Önbellek (Redis) servisleri `docker-compose` ile birbirine entegre ve izole şekilde çalışır.
 
-## 🚀 Kurulum ve Çalıştırma
+##  Kurulum ve Çalıştırma
 
 Projeyi yerel ortamınızda çalıştırmak için sisteminizde **Docker** ve **Docker Compose** kurulu olmalıdır.
 
