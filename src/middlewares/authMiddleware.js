@@ -1,20 +1,31 @@
 const jwt = require('jsonwebtoken');
 
-module.exports = (req, res, next) => {
+// Header formatı: "Authorization: Bearer <token>"
+const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
-    if(!authHeader)
-        return res.status(401).json({ mesasage: "Token gerekli,"});
-    const token = authHeader.split(" ")[1];
-    
-    if (!token) {
-    return res.status(401).json({ message: "Token bulunamadı." });
-  }
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Token gerekli." });
+    }
 
-    jwt.verify(token, process.env.JWT_SECRET || "secretkey", (err, decoded) => {
-        if(err)
-            return res.status(401).json({ message: "Token geçersiz"});
+    const token = authHeader.slice("Bearer ".length).trim();
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ message: "Token geçersiz veya süresi dolmuş." });
+        }
 
         req.user = decoded;
         next();
     });
 };
+
+// authMiddleware'den sonra kullanılır: requireRole("ADMIN")
+const requireRole = (...roles) => (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Bu işlem için yetkiniz yok." });
+    }
+    next();
+};
+
+module.exports = authMiddleware;
+module.exports.requireRole = requireRole;

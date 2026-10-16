@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   api:
     build: .
@@ -9,17 +7,27 @@ services:
     env_file:
       - .env
     environment:
-       REDIS_HOST: redis
-       REDIS_PORT: 6379
-       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/scalable_product_db
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/scalable_product_db
+    # Başlamadan önce Prisma şemasını veritabanına uygula (tabloları oluşturur/günceller)
+    command: sh -c "npx prisma db push --skip-generate && npm start"
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
     container_name: redis
-    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   postgres:
     image: postgres:15-alpine
     container_name: postgres
@@ -27,9 +35,13 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: scalable_product_db
-   
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d scalable_product_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   pgdata:

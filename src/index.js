@@ -1,13 +1,26 @@
 require('dotenv').config();
-const rateLimiter = require('./middlewares/rateLimiter');
+
+if (!process.env.JWT_SECRET) {
+  console.error("JWT_SECRET tanımlı değil. .env dosyasına ekleyin.");
+  process.exit(1);
+}
+
 const express = require('express');
-require("./redis");
+const rateLimiter = require('./middlewares/rateLimiter');
+const authMiddleware = require('./middlewares/authMiddleware');
+const authRoutes = require('./routes/authRoutes');
+const productRoutes = require('./routes/productRoutes');
+
 const app = express();
 
-app.use(express.json());
-app.use(rateLimiter(50, 60000));
+// Reverse proxy (nginx vb.) arkasında req.ip gerçek istemci IP'si olsun
+if (process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
 
-const authMiddleware = require('./middlewares/authMiddleware');
+// Rate limiter en başta: bozuk/büyük gövdeli istekler de limite takılsın
+app.use(rateLimiter(50, 60_000));
+app.use(express.json());
 
 app.get('/', (req, res) => {
   res.send({ message: "API çalışıyor" });
@@ -20,15 +33,28 @@ app.get('/protected', authMiddleware, (req, res) => {
   });
 });
 
-const authRoutes = require('./routes/authRoutes');
 app.use('/auth', authRoutes);
-
-const productRoutes = require('./routes/productRoutes');
 app.use('/products', productRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({ message: "Endpoint bulunamadı." });
+});
+
+// Bozuk JSON gövdesi vb. beklenmeyen hatalar
+app.use((err, req, res, next) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Geçersiz JSON." });
+  }
+  console.error("Beklenmeyen hata:", err);
+  res.status(500).json({ message: "Sunucu hatası" });
+});
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server çalışıyor: ${PORT}`);
-});
-// tekrar push zart zurt işlemlerini yapıcaz tekrar denicez. en son bu dosyada bir şeyler değiştirdik burda bıraktık 
+if (require.main === module) {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server çalışıyor: ${PORT}`);
+  });
+}
+
+module.exports = app;

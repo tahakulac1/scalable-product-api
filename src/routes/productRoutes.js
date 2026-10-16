@@ -1,22 +1,42 @@
-const rateLimiter = require('../middlewares/rateLimiter');
 const express = require('express');
 const router = express.Router();
 
 const productController = require('../controllers/productController');
 const authMiddleware = require('../middlewares/authMiddleware');
-const cacheMiddleware = require('../middlewares/cacheMiddleware');
+const { requireRole } = require('../middlewares/authMiddleware');
+const { cacheProducts } = require('../middlewares/cacheMiddleware');
+const { parsePagination, parseIdParam, validateProductBody } = require('../middlewares/validators');
 
-
-// ürün listeleme
+// Okuma: giriş yapmış her kullanıcı
 router.get('/',
-     authMiddleware,
-     rateLimiter(50,60000),
-     cacheMiddleware.cacheProducts,
-     productController.getProducts);
-//ürün oluşturma
-router.post('/', authMiddleware, productController.createProduct);
-// id ile ürün getirme
-router.get('/:id', authMiddleware, productController.getProductsById);
-router.put('/:id',authMiddleware, productController.updateProduct);
-router.delete('/:id', authMiddleware, productController.deleteProduct);
+    authMiddleware,
+    parsePagination,
+    cacheProducts,
+    productController.getProducts);
+
+router.get('/:id',
+    authMiddleware,
+    parseIdParam,
+    productController.getProductsById);
+
+// Yazma: sadece ADMIN
+router.post('/',
+    authMiddleware,
+    requireRole('ADMIN'),
+    validateProductBody(),
+    productController.createProduct);
+
+router.put('/:id',
+    authMiddleware,
+    requireRole('ADMIN'),
+    parseIdParam,
+    validateProductBody({ partial: true }),
+    productController.updateProduct);
+
+router.delete('/:id',
+    authMiddleware,
+    requireRole('ADMIN'),
+    parseIdParam,
+    productController.deleteProduct);
+
 module.exports = router;
